@@ -1,20 +1,126 @@
-<div id="setup-menu">
-    <h2>Singleplayer Setup</h2>
-    
-    <label>Kies Skin Kleur:</label>
-    <input type="color" id="skinPicker" value="#ff0000">
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <link rel="stylesheet" href="../style.css">
+</head>
+<body>
+    <div id="setup-menu">
+        <h2>Singleplayer Setup</h2>
+        <label>Kies Skin Kleur:</label>
+        <input type="color" id="skinPicker" value="#e74c3c">
+        
+        <label>Moeilijkheidsgraad:</label>
+        <select id="difficulty">
+            <option value="2">Makkelijk</option>
+            <option value="4">Gemiddeld</option>
+            <option value="6">Moeilijk</option>
+        </select>
+        <button id="startGame" class="btn">Start Verovering</button>
+    </div>
 
-    <label>Moeilijkheidsgraad:</label>
-    <select id="difficulty">
-        <option value="easy">Makkelijk</option>
-        <option value="medium">Gemiddeld</option>
-        <option value="hard">Moeilijk</option>
-    </select>
+    <canvas id="gameCanvas"></canvas>
+    <div id="minimap-container">
+        <canvas id="minimap" width="180" height="180"></canvas>
+    </div>
 
-    <button id="startGame">Start Spel</button>
-</div>
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const mCanvas = document.getElementById('minimap');
+        const mCtx = mCanvas.getContext('2d');
 
-<canvas id="gameCanvas"></canvas>
-<div id="minimap-container">
-    <canvas id="minimap"></canvas>
-</div>
+        let gameActive = false;
+        let speed = 4;
+        let player = { x: 0, y: 0, color: '#e74c3c', dir: 'RIGHT', trail: [] };
+        let bots = [];
+
+        document.getElementById('startGame').onclick = () => {
+            player.color = document.getElementById('skinPicker').value;
+            speed = parseInt(document.getElementById('difficulty').value);
+            
+            document.getElementById('setup-menu').classList.add('hidden');
+            canvas.style.display = 'block';
+            document.getElementById('minimap-container').style.display = 'block';
+            
+            initGame();
+        };
+
+        function initGame() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            player.x = canvas.width / 2;
+            player.y = canvas.height / 2;
+            
+            // Maak 3 bots aan op willekeurige plekken
+            for(let i=0; i<3; i++) {
+                bots.push({
+                    x: Math.random() * canvas.width,
+                    y: Math.random() * canvas.height,
+                    color: ['#f1c40f', '#9b59b6', '#2ecc71'][i],
+                    dir: 'DOWN',
+                    trail: []
+                });
+            }
+            gameActive = true;
+            loop();
+        }
+
+        window.addEventListener('keydown', (e) => {
+            if(e.key === 'ArrowUp' && player.dir !== 'DOWN') player.dir = 'UP';
+            if(e.key === 'ArrowDown' && player.dir !== 'UP') player.dir = 'DOWN';
+            if(e.key === 'ArrowLeft' && player.dir !== 'RIGHT') player.dir = 'LEFT';
+            if(e.key === 'ArrowRight' && player.dir !== 'LEFT') player.dir = 'RIGHT';
+        });
+
+        function updateEntity(ent) {
+            if(ent.dir === 'UP') ent.y -= speed;
+            if(ent.dir === 'DOWN') ent.y += speed;
+            if(ent.dir === 'LEFT') ent.x -= speed;
+            if(ent.dir === 'RIGHT') ent.x += speed;
+            
+            ent.trail.push({x: ent.x, y: ent.y});
+            if(ent.trail.length > 100) ent.trail.shift(); // Trail beperken voor performance
+        }
+
+        function loop() {
+            if(!gameActive) return;
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            mCtx.clearRect(0, 0, 180, 180);
+
+            // Update & Teken speler
+            updateEntity(player);
+            drawEntity(player);
+
+            // Update & Teken bots
+            bots.forEach(bot => {
+                if(Math.random() < 0.05) { // Willekeurig draaien
+                    const dirs = ['UP', 'DOWN', 'LEFT', 'RIGHT'];
+                    bot.dir = dirs[Math.floor(Math.random()*4)];
+                }
+                updateEntity(bot);
+                drawEntity(bot);
+            });
+
+            requestAnimationFrame(loop);
+        }
+
+        function drawEntity(ent) {
+            // Teken trail
+            ctx.beginPath();
+            ctx.strokeStyle = ent.color;
+            ctx.lineWidth = 15;
+            ent.trail.forEach(p => ctx.lineTo(p.x, p.y));
+            ctx.stroke();
+
+            // Teken hoofd
+            ctx.fillStyle = ent.color;
+            ctx.fillRect(ent.x - 10, ent.y - 10, 20, 20);
+
+            // Teken op minimap (schaal 1:10)
+            mCtx.fillStyle = ent.color;
+            mCtx.fillRect(ent.x/10, ent.y/10, 5, 5);
+        }
+    </script>
+</body>
+</html>
