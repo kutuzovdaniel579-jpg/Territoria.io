@@ -2,26 +2,30 @@
 <html lang="nl">
 <head>
     <meta charset="UTF-8">
+    <title>Territoria.io - Singleplayer</title>
     <link rel="stylesheet" href="../style.css">
 </head>
 <body>
+
     <div id="setup-menu">
-        <h2>Singleplayer Setup</h2>
-        <label>Kies Skin Kleur:</label>
-        <input type="color" id="skinPicker" value="#e74c3c">
-        
-        <label>Moeilijkheidsgraad:</label>
+        <h1>Territoria.io</h1>
+        <h3>Singleplayer Setup</h3>
+        <label>Skin Kleur:</label><br>
+        <input type="color" id="skinPicker" value="#3498db"><br><br>
+        <label>Moeilijkheidsgraad:</label><br>
         <select id="difficulty">
-            <option value="2">Makkelijk</option>
-            <option value="4">Gemiddeld</option>
-            <option value="6">Moeilijk</option>
-        </select>
-        <button id="startGame" class="btn">Start Verovering</button>
+            <option value="3">Makkelijk</option>
+            <option value="5" selected>Normaal</option>
+            <option value="8">Moeilijk</option>
+        </select><br>
+        <button id="startGame" class="btn">Start Spel</button>
     </div>
 
-    <canvas id="gameCanvas"></canvas>
-    <div id="minimap-container">
-        <canvas id="minimap" width="180" height="180"></canvas>
+    <div id="game-container">
+        <canvas id="gameCanvas"></canvas>
+        <div id="minimap-container">
+            <canvas id="minimap" width="150" height="150"></canvas>
+        </div>
     </div>
 
     <script>
@@ -30,96 +34,164 @@
         const mCanvas = document.getElementById('minimap');
         const mCtx = mCanvas.getContext('2d');
 
+        // Game Instellingen
+        const TILE_SIZE = 20;
+        const MAP_SIZE = 100; // 100x100 tiles
+        let grid = []; // 0 = leeg, 1 = speler, 2+ = bots
+        let speed = 5;
         let gameActive = false;
-        let speed = 4;
-        let player = { x: 0, y: 0, color: '#e74c3c', dir: 'RIGHT', trail: [] };
+
+        let player = {
+            x: 10, y: 10, // Grid posities
+            realX: 200, realY: 200,
+            color: '#3498db',
+            dir: 'RIGHT',
+            id: 1,
+            isDrawing: false
+        };
+
         let bots = [];
 
         document.getElementById('startGame').onclick = () => {
             player.color = document.getElementById('skinPicker').value;
             speed = parseInt(document.getElementById('difficulty').value);
-            
-            document.getElementById('setup-menu').classList.add('hidden');
-            canvas.style.display = 'block';
-            document.getElementById('minimap-container').style.display = 'block';
-            
+            document.getElementById('setup-menu').style.display = 'none';
+            document.getElementById('game-container').style.display = 'block';
             initGame();
         };
 
         function initGame() {
             canvas.width = window.innerWidth;
             canvas.height = window.innerHeight;
-            player.x = canvas.width / 2;
-            player.y = canvas.height / 2;
             
-            // Maak 3 bots aan op willekeurige plekken
-            for(let i=0; i<3; i++) {
-                bots.push({
-                    x: Math.random() * canvas.width,
-                    y: Math.random() * canvas.height,
-                    color: ['#f1c40f', '#9b59b6', '#2ecc71'][i],
-                    dir: 'DOWN',
-                    trail: []
-                });
+            // Grid opvullen met 0
+            for(let y=0; y<MAP_SIZE; y++) {
+                grid[y] = [];
+                for(let x=0; x<MAP_SIZE; x++) grid[y][x] = 0;
             }
+
+            // Start gebied voor speler
+            spawnArea(10, 10, 1);
+            
+            // Spawn Bots
+            for(let i=0; i<3; i++) {
+                let bx = Math.floor(Math.random() * (MAP_SIZE - 10)) + 5;
+                let by = Math.floor(Math.random() * (MAP_SIZE - 10)) + 5;
+                bots.push({
+                    x: bx, y: by,
+                    realX: bx * TILE_SIZE, realY: by * TILE_SIZE,
+                    color: ['#e74c3c', '#f1c40f', '#2ecc71'][i],
+                    dir: 'DOWN', id: i + 2, isDrawing: false
+                });
+                spawnArea(bx, by, i + 2);
+            }
+
             gameActive = true;
-            loop();
+            requestAnimationFrame(gameLoop);
         }
 
-        window.addEventListener('keydown', (e) => {
+        function spawnArea(x, y, id) {
+            for(let i=-2; i<=2; i++) {
+                for(let j=-2; j<=2; j++) {
+                    if(grid[y+i]) grid[y+i][x+j] = id;
+                }
+            }
+        }
+
+        window.onkeydown = (e) => {
             if(e.key === 'ArrowUp' && player.dir !== 'DOWN') player.dir = 'UP';
             if(e.key === 'ArrowDown' && player.dir !== 'UP') player.dir = 'DOWN';
             if(e.key === 'ArrowLeft' && player.dir !== 'RIGHT') player.dir = 'LEFT';
             if(e.key === 'ArrowRight' && player.dir !== 'LEFT') player.dir = 'RIGHT';
-        });
+        };
 
-        function updateEntity(ent) {
-            if(ent.dir === 'UP') ent.y -= speed;
-            if(ent.dir === 'DOWN') ent.y += speed;
-            if(ent.dir === 'LEFT') ent.x -= speed;
-            if(ent.dir === 'RIGHT') ent.x += speed;
-            
-            ent.trail.push({x: ent.x, y: ent.y});
-            if(ent.trail.length > 100) ent.trail.shift(); // Trail beperken voor performance
+        function moveEntity(ent) {
+            if(ent.dir === 'UP') ent.realY -= speed;
+            if(ent.dir === 'DOWN') ent.realY += speed;
+            if(ent.dir === 'LEFT') ent.realX -= speed;
+            if(ent.dir === 'RIGHT') ent.realX += speed;
+
+            // Omzetten naar Grid positie
+            let newX = Math.floor(ent.realX / TILE_SIZE);
+            let newY = Math.floor(ent.realY / TILE_SIZE);
+
+            if(newX !== ent.x || newY !== ent.y) {
+                ent.x = newX; ent.y = newY;
+                
+                // Trail logica
+                if(grid[ent.y] && grid[ent.y][ent.x] !== ent.id) {
+                    // Check of je je eigen trail raakt (Dood)
+                    if(grid[ent.y][ent.x] === -ent.id) {
+                        alert("Game Over!"); location.reload();
+                    }
+                    grid[ent.y][ent.x] = -ent.id; // Markeer als trail
+                    ent.isDrawing = true;
+                } else if(grid[ent.y] && grid[ent.y][ent.x] === ent.id && ent.isDrawing) {
+                    captureArea(ent.id);
+                    ent.isDrawing = false;
+                }
+            }
         }
 
-        function loop() {
+        function captureArea(id) {
+            for(let y=0; y<MAP_SIZE; y++) {
+                for(let x=0; x<MAP_SIZE; x++) {
+                    if(grid[y][x] === -id) grid[y][x] = id;
+                }
+            }
+            // Simpele filling: we maken alle 'gaten' ook die kleur (flood fill concept)
+            // Voor nu vullen we alleen de trails.
+        }
+
+        function gameLoop() {
             if(!gameActive) return;
             ctx.clearRect(0, 0, canvas.width, canvas.height);
-            mCtx.clearRect(0, 0, 180, 180);
-
-            // Update & Teken speler
-            updateEntity(player);
-            drawEntity(player);
-
-            // Update & Teken bots
+            
+            moveEntity(player);
             bots.forEach(bot => {
-                if(Math.random() < 0.05) { // Willekeurig draaien
+                if(Math.random() < 0.02) {
                     const dirs = ['UP', 'DOWN', 'LEFT', 'RIGHT'];
-                    bot.dir = dirs[Math.floor(Math.random()*4)];
+                    bot.dir = dirs[Math.floor(Math.random() * 4)];
                 }
-                updateEntity(bot);
-                drawEntity(bot);
+                moveEntity(bot);
             });
 
-            requestAnimationFrame(loop);
+            drawGrid();
+            drawPlayers();
+            drawMinimap();
+            requestAnimationFrame(gameLoop);
         }
 
-        function drawEntity(ent) {
-            // Teken trail
-            ctx.beginPath();
-            ctx.strokeStyle = ent.color;
-            ctx.lineWidth = 15;
-            ent.trail.forEach(p => ctx.lineTo(p.x, p.y));
-            ctx.stroke();
+        function drawGrid() {
+            for(let y=0; y<MAP_SIZE; y++) {
+                for(let x=0; x<MAP_SIZE; x++) {
+                    if(grid[y][x] !== 0) {
+                        let val = grid[y][x];
+                        let color = (val === 1 || val === -1) ? player.color : 
+                                    (val > 1 || val < -1) ? bots[Math.abs(val)-2].color : '#eee';
+                        
+                        ctx.globalAlpha = (val < 0) ? 0.5 : 1.0;
+                        ctx.fillStyle = color;
+                        ctx.fillRect(x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+                    }
+                }
+            }
+            ctx.globalAlpha = 1.0;
+        }
 
-            // Teken hoofd
-            ctx.fillStyle = ent.color;
-            ctx.fillRect(ent.x - 10, ent.y - 10, 20, 20);
+        function drawPlayers() {
+            ctx.fillStyle = player.color;
+            ctx.fillRect(player.realX, player.realY, TILE_SIZE, TILE_SIZE);
+            bots.forEach(bot => {
+                ctx.fillStyle = bot.color;
+                ctx.fillRect(bot.realX, bot.realY, TILE_SIZE, TILE_SIZE);
+            });
+        }
 
-            // Teken op minimap (schaal 1:10)
-            mCtx.fillStyle = ent.color;
-            mCtx.fillRect(ent.x/10, ent.y/10, 5, 5);
+        function drawMinimap() {
+            mCtx.clearRect(0, 0, 150, 150);
+            mCtx.fillStyle = player.color;
+            mCtx.fillRect((player.realX/TILE_SIZE), (player.realY/TILE_SIZE), 5, 5);
         }
     </script>
 </body>
