@@ -2,27 +2,30 @@
 <html lang="nl">
 <head>
     <meta charset="UTF-8">
-    <title>Territoria.io | Verover de wereld</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Territoria.io | Verover de Wereld</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
     <div id="splash-screen">
         <h1 class="logo">Territoria.io</h1>
         <div class="loader"></div>
+        <p>Laden...</p>
     </div>
 
     <div id="main-menu" class="hidden">
-        <h1>Territoria.io</h1>
-        <button onclick="location.href='./sp/'">Singleplayer</button>
-        <button disabled title="Binnenkort beschikbaar">Multiplayer (Soon)</button>
+        <h1 class="title">Territoria.io</h1>
+        <div class="menu-buttons">
+            <button class="btn pulse" onclick="window.location.href='./sp/index.html'">Singleplayer</button>
+            <button class="btn disabled" title="Binnenkort beschikbaar">Multiplayer (Soon)</button>
+        </div>
     </div>
 
     <script>
-        // Simpel splashscreen effect
         setTimeout(() => {
-            document.getElementById('splash-screen').classList.add('fade-out');
+            document.getElementById('splash-screen').style.display = 'none';
             document.getElementById('main-menu').classList.remove('hidden');
-        }, 2000);
+        }, 2500);
     </script>
 </body>
 </html>
