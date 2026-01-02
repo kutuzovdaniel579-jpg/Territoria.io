@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <title>Territoria.io | Verover de wereld</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="splash-screen">
+        <h1 class="logo">Territoria.io</h1>
+        <div class="loader"></div>
+    </div>
+
+    <div id="main-menu" class="hidden">
+        <h1>Territoria.io</h1>
+        <button onclick="location.href='./sp/'">Singleplayer</button>
+        <button disabled title="Binnenkort beschikbaar">Multiplayer (Soon)</button>
+    </div>
+
+    <script>
+        // Simpel splashscreen effect
+        setTimeout(() => {
+            document.getElementById('splash-screen').classList.add('fade-out');
+            document.getElementById('main-menu').classList.remove('hidden');
+        }, 2000);
+    </script>
+</body>
+</html>
